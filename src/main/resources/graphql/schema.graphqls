@@ -1,0 +1,46 @@
+type Note{
+    id: ID!
+    title: String!
+    content: String!
+    createdAt: String!
+    updatedAt: String
+    tags: [Tag!]!
+    referencesTo: [Note!]!
+    referencedBy: [Note!]!
+}
+type Tag{
+    id: ID!
+    name: String!
+    notes: [Note!]!
+}
+
+type Query {
+    note(id: ID!): Note
+    notes: [Note!]!
+    notesByTag(tagName: String!): [Note!]!
+    tag(name: String!): Tag
+    tags: [Tag!]!
+}
+
+type Mutation {
+    createNote(input: CreateNoteInput!): Note!
+    updateNote(id: ID!, input: UpdateNoteInput!): Note!
+    deleteNote(id: ID!): Boolean!
+
+    addReference(fromNoteId: ID!, toNoteId: ID!): Note!
+    removeReference(fromNoteId: ID!, toNoteId: ID!): Note!
+
+    addTag(noteId: ID!, tagName: String!): Note!
+    removeTag(noteId: ID!, tagName: String!): Note!
+}
+
+input CreateNoteInput {
+    title: String!
+    content: String!
+    tagNames: [String!]
+}
+
+input UpdateNoteInput {
+    title: String
+    content: String
+}
