@@ -31,7 +31,7 @@ public class GraphQlExceptionAdvice {
 
         return GraphqlErrorBuilder.newError(env)
                 .message(message)
-                .errorType(ErrorType.BAD_REQUEST)
+                .errorType(ErrorType.ValidationError)
                 .build();
     }
 
