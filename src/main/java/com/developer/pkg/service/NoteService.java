@@ -24,18 +24,18 @@ public class NoteService {
 
     @Transactional(readOnly = true)
     public Note findById(UUID id) {
-        return noteRepository.findById(id)
+        return noteRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new RuntimeException("Note not found with id: " + id));
     }
 
     @Transactional(readOnly = true)
     public List<Note> findAll() {
-        return noteRepository.findAll();
+        return noteRepository.findAllWithDetails();
     }
 
     @Transactional(readOnly = true)
     public List<Note> findByTagName(String tagName) {
-        return noteRepository.findByTags_Name(tagName.toLowerCase());
+        return noteRepository.findByTags_NameIgnoreCase(tagName);
     }
 
     public Note createNote(String title, String content, Set<String> tagNames) {
