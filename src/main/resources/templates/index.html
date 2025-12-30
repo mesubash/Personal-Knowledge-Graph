@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>API Docs (JSON)</title>
+  <style>
+    body { font-family: Menlo, Monaco, monospace; background:#0b1220; color:#cbd5e1; padding:24px }
+    .container { max-width:1100px; margin:0 auto }
+    pre { background:#071022; padding:18px; border-radius:8px; overflow:auto; color:#a7f3d0 }
+    h1 { color:#fff }
+    .muted { color:#94a3b8 }
+    .note { margin-top:12px; color:#fef3c7 }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Personal Knowledge Graph — JSON-style Developer Docs</h1>
+    <p class="muted">This page lists available endpoints (web pages, REST and GraphQL) and shows request/response shapes in a JSON developer-friendly format.</p>
+
+    <p class="note">Server base URL: <strong>http://localhost:8080</strong> (see <code>src/main/resources/application.properties</code>)</p>
+
+    <h2>Contents</h2>
+    <ul class="muted">
+      <li>Web Pages (Thymeleaf templates)</li>
+      <li>REST Endpoints</li>
+      <li>GraphQL Operations (Queries & Mutations)</li>
+    </ul>
+
+    <h2>1) Web Pages</h2>
+    <pre>{
+  "pages": [
+    {
+      "path": "/",
+      "method": "GET",
+      "description": "Home page — Thymeleaf template 'index'",
+      "access": "http://localhost:8080/"
+    },
+    {
+      "path": "/graph",
+      "method": "GET",
+      "description": "Graph visualization page — Thymeleaf template 'graph'",
+      "access": "http://localhost:8080/graph"
+    }
+  ]
+}</pre>
+
+    <h2>2) REST Endpoints</h2>
+    <pre>{
+  "rest": [
+    {
+      "path": "/api/graph/data",
+      "method": "GET",
+      "description": "Returns nodes, links and statistics for graph visualization",
+      "response": {
+        "nodes": [
+          {
+            "id": "UUID",
+            "label": "string",
+            "type": "\"note\" | \"tag\"",
+            "content": "string (note content, optional for tags)",
+            "tags": ["tagName", "..."],
+            "referenceCount": 0
+          }
+        ],
+        "links": [
+          {
+            "source": "UUID",
+            "target": "UUID",
+            "type": "\"references\" | \"has-tag\""
+          }
+        ],
+        "stats": {
+          "noteCount": 0,
+          "tagCount": 0,
+          "referenceCount": 0
+        }
+      },
+      "access": "GET http://localhost:8080/api/graph/data"
+    }
+  ]
+}</pre>
+
+    <h2>3) GraphQL API (HTTP endpoint)</h2>
+    <p class="muted">GraphQL server is available at <code>/graphql</code>. GraphiQL UI is enabled at <code>/graphiql</code>.</p>
+
+    <pre>{
+  "graphql": {
+    "endpoint": "/graphql",
+    "graphiql": "/graphiql",
+    "schema_summary": {
+      "types": {
+        "Note": {
+          "id": "ID!",
+          "title": "String!",
+          "content": "String!",
+          "createdAt": "String!",
+          "updatedAt": "String",
+          "tags": "[Tag!]!",
+          "referencesTo": "[Note!]!",
+          "referencedBy": "[Note!]!"
+        },
+        "Tag": {
+          "id": "ID!",
+          "name": "String!",
+          "notes": "[Note!]!"
+        }
+      },
+
+      "queries": {
+        "note": {
+          "signature": "note(id: ID!): Note",
+          "description": "Fetch a single Note by its UUID",
+          "example_request": {
+            "query": "query ($id: ID!) { note(id: $id) { id title content createdAt updatedAt tags { id name } referencesTo { id title } referencedBy { id title } } }",
+            "variables": { "id": "&lt;UUID&gt;" }
+          }
+        },
+
+        "notes": {
+          "signature": "notes: [Note!]!",
+          "description": "Fetch all notes",
+          "example_request": {
+            "query": "{ notes { id title content createdAt tags { id name } } }"
+          }
+        },
+
+        "notesByTag": {
+          "signature": "notesByTag(tagName: String!): [Note!]!",
+          "description": "Fetch notes that have a tag with the given name",
+          "example_request": {
+            "query": "query ($tagName: String!) { notesByTag(tagName: $tagName) { id title content tags { id name } } }",
+            "variables": { "tagName": "example-tag" }
+          }
+        },
+
+        "tag": {
+          "signature": "tag(name: String!): Tag",
+          "description": "Fetch a Tag by its name",
+          "example_request": {
+            "query": "query ($name: String!) { tag(name: $name) { id name notes { id title } } }",
+            "variables": { "name": "example-tag" }
+          }
+        },
+
+        "tags": {
+          "signature": "tags: [Tag!]!",
+          "description": "Fetch all tags",
+          "example_request": {
+            "query": "{ tags { id name } }"
+          }
+        }
+      },
+
+      "mutations": {
+        "createNote": {
+          "signature": "createNote(input: CreateNoteInput!): Note!",
+          "description": "Create a new note. If tag names provided they will be created/linked.",
+          "input_type": {
+            "CreateNoteInput": {
+              "title": "String!",
+              "content": "String!",
+              "tagNames": "[String!] (optional)"
+            }
+          },
+          "example_request": {
+            "query": "mutation ($input: CreateNoteInput!) { createNote(input: $input) { id title content tags { id name } } }",
+            "variables": { "input": { "title": "My note", "content": "Note body", "tagNames": ["dev","idea"] } }
+          }
+        },
+
+        "updateNote": {
+          "signature": "updateNote(id: ID!, input: UpdateNoteInput!): Note!",
+          "description": "Update the title/content of a note",
+          "input_type": {
+            "UpdateNoteInput": {
+              "title": "String (optional)",
+              "content": "String (optional)"
+            }
+          },
+          "example_request": {
+            "query": "mutation ($id: ID!, $input: UpdateNoteInput!) { updateNote(id: $id, input: $input) { id title content } }",
+            "variables": { "id": "&lt;UUID&gt;", "input": { "title": "New title" } }
+          }
+        },
+
+        "deleteNote": {
+          "signature": "deleteNote(id: ID!): Boolean!",
+          "description": "Delete a note by ID. Returns true when deleted, false otherwise.",
+          "example_request": {
+            "query": "mutation ($id: ID!) { deleteNote(id: $id) }",
+            "variables": { "id": "&lt;UUID&gt;" }
+          }
+        },
+
+        "addReference": {
+          "signature": "addReference(fromNoteId: ID!, toNoteId: ID!): Note!",
+          "description": "Add a directed reference from one note to another",
+          "example_request": {
+            "query": "mutation ($from: ID!, $to: ID!) { addReference(fromNoteId: $from, toNoteId: $to) { id referencesTo { id } } }",
+            "variables": { "from": "&lt;UUID&gt;", "to": "&lt;UUID&gt;" }
+          }
+        },
+
+        "removeReference": {
+          "signature": "removeReference(fromNoteId: ID!, toNoteId: ID!): Note!",
+          "description": "Remove an existing reference",
+          "example_request": {
+            "query": "mutation ($from: ID!, $to: ID!) { removeReference(fromNoteId: $from, toNoteId: $to) { id referencesTo { id } } }",
+            "variables": { "from": "&lt;UUID&gt;", "to": "&lt;UUID&gt;" }
+          }
+        },
+
+        "addTag": {
+          "signature": "addTag(noteId: ID!, tagName: String!): Note!",
+          "description": "Add (or create) a tag and attach it to a note",
+          "example_request": {
+            "query": "mutation ($noteId: ID!, $tagName: String!) { addTag(noteId: $noteId, tagName: $tagName) { id tags { id name } } }",
+            "variables": { "noteId": "&lt;UUID&gt;", "tagName": "idea" }
+          }
+        },
+
+        "removeTag": {
+          "signature": "removeTag(noteId: ID!, tagName: String!): Note!",
+          "description": "Remove a tag from a note",
+          "example_request": {
+            "query": "mutation ($noteId: ID!, $tagName: String!) { removeTag(noteId: $noteId, tagName: $tagName) { id tags { id name } } }",
+            "variables": { "noteId": "&lt;UUID&gt;", "tagName": "idea" }
+          }
+        }
+      }
+    }
+  }
+}</pre>
+
+    <h2>Notes & Tips</h2>
+    <ul class="muted">
+      <li>GraphQL is the primary API for data manipulation (queries & mutations). Use <code>/graphiql</code> in your browser for an interactive UI.</li>
+      <li>REST <code>/api/graph/data</code> is a convenience endpoint for front-end graph rendering.</li>
+      <li>IDs are UUIDs (see entity classes in <code>src/main/java/com/developer/pkg/entity</code>).</li>
+      <li>Example GraphQL HTTP POST shape (JSON):</li>
+    </ul>
+
+    <pre>{
+  "query": "{ notes { id title } }",
+  "variables": null
+}</pre>
+
+    <p class="muted">If you want additional endpoints auto-documented (e.g., repository or service-level APIs), tell me which layers to include.</p>
+  </div>
+</body>
+</html>
