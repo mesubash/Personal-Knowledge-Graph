@@ -1,0 +1,172 @@
+{
+  "meta": {
+    "note": "This file contains ready-to-copy JSON request bodies (and example responses) for testing the Personal Knowledge Graph endpoints in Postman or curl.",
+    "baseUrl": "http://localhost:8080",
+    "graphqlEndpoint": "{{baseUrl}}/graphql",
+    "restGraphData": "{{baseUrl}}/api/graph/data",
+    "usage": "POST to /graphql with Content-Type: application/json and copy the 'body' value. For REST GET, just call the URL. Replace any placeholder environment vars (e.g., {{noteId}}) with real IDs returned from create requests."
+  },
+
+  "sampleIds": {
+    "noteA": "b3a1f6d2-6f3a-4e0a-9f5b-0c1d2e3f4a5b",
+    "noteB": "f9c2a1b4-2d3e-4f5a-8b7c-1d2e3f4a6b7c",
+    "tagImportant": "important",
+    "tagIdea": "idea"
+  },
+
+  "rest": {
+    "getGraphData": {
+      "description": "GET {{baseUrl}}/api/graph/data - no request body. Example of the expected JSON response below.",
+      "example_response": {
+        "nodes": [
+          {
+            "id": "b3a1f6d2-6f3a-4e0a-9f5b-0c1d2e3f4a5b",
+            "label": "Spring Boot Basics",
+            "type": "note",
+            "content": "Spring Boot makes it easy to create stand-alone applications.",
+            "tags": ["spring-boot","java"],
+            "referenceCount": 1
+          },
+          {
+            "id": "f9c2a1b4-2d3e-4f5a-8b7c-1d2e3f4a6b7c",
+            "label": "Spring Data JPA",
+            "type": "note",
+            "content": "JPA simplifies database access in Spring Boot.",
+            "tags": ["spring-boot","jpa"],
+            "referenceCount": 0
+          },
+          {
+            "id": "11111111-2222-3333-4444-555555555555",
+            "label": "spring-boot",
+            "type": "tag",
+            "content": null,
+            "tags": [],
+            "referenceCount": 0
+          }
+        ],
+        "links": [
+          { "source": "b3a1f6d2-6f3a-4e0a-9f5b-0c1d2e3f4a5b", "target": "f9c2a1b4-2d3e-4f5a-8b7c-1d2e3f4a6b7c", "type": "references" },
+          { "source": "b3a1f6d2-6f3a-4e0a-9f5b-0c1d2e3f4a5b", "target": "11111111-2222-3333-4444-555555555555", "type": "has-tag" }
+        ],
+        "stats": { "noteCount": 2, "tagCount": 1, "referenceCount": 1 }
+      }
+    }
+  },
+
+  "graphql": {
+    "noteQueries": {
+      "queryAllNotes": {
+        "description": "Query all notes",
+        "body": {
+          "query": "{ notes { id title content createdAt updatedAt tags { id name } referencesTo { id title } referencedBy { id title } } }",
+          "variables": null
+        }
+      },
+
+      "querySingleNote": {
+        "description": "Query a single note by ID (replace {{noteId}} or use sampleIds.noteA)",
+        "body": {
+          "query": "query ($id: ID!) { note(id: $id) { id title content createdAt updatedAt tags { id name } referencesTo { id title } referencedBy { id title } } }",
+          "variables": { "id": "b3a1f6d2-6f3a-4e0a-9f5b-0c1d2e3f4a5b" }
+        }
+      },
+
+      "queryNotesByTag": {
+        "description": "Query notes by tag name",
+        "body": {
+          "query": "query ($tagName: String!) { notesByTag(tagName: $tagName) { id title content tags { id name } } }",
+          "variables": { "tagName": "spring-boot" }
+        }
+      },
+
+      "queryAllTags": {
+        "description": "Query all tags",
+        "body": {
+          "query": "{ tags { id name notes { id title } } }",
+          "variables": null
+        }
+      }
+    },
+
+    "mutations": {
+      "createNote": {
+        "description": "Create a new note. Copy-paste the JSON body into Postman body (raw -> JSON). The response will include the created id.",
+        "body": {
+          "query": "mutation ($input: CreateNoteInput!) { createNote(input: $input) { id title content createdAt tags { id name } } }",
+          "variables": {
+            "input": {
+              "title": "My note from Postman",
+              "content": "This is a sample note created while testing via Postman. Includes some tags and content to exercise the API.",
+              "tagNames": ["postman","testing","idea"]
+            }
+          }
+        },
+        "postman_test_script": "const json = pm.response.json(); if (json && json.data && json.data.createNote && json.data.createNote.id) { pm.environment.set('noteId', json.data.createNote.id); }"
+      },
+
+      "createAnotherNote": {
+        "description": "Create a second note used for references",
+        "body": {
+          "query": "mutation ($input: CreateNoteInput!) { createNote(input: $input) { id title } }",
+          "variables": {
+            "input": {
+              "title": "Second note from Postman",
+              "content": "This note will be referenced by the first note.",
+              "tagNames": ["postman","reference"]
+            }
+          }
+        },
+        "postman_test_script": "const json = pm.response.json(); if (json && json.data && json.data.createNote && json.data.createNote.id) { pm.environment.set('otherNoteId', json.data.createNote.id); }"
+      },
+
+      "updateNote": {
+        "description": "Update an existing note. Use env var {{noteId}} created from createNote response.",
+        "body": {
+          "query": "mutation ($id: ID!, $input: UpdateNoteInput!) { updateNote(id: $id, input: $input) { id title content updatedAt } }",
+          "variables": { "id": "{{noteId}}", "input": { "title": "Updated title from Postman", "content": "Updated content sample." } }
+        }
+      },
+
+      "deleteNote": {
+        "description": "Delete a note by ID (use {{noteId}})",
+        "body": {
+          "query": "mutation ($id: ID!) { deleteNote(id: $id) }",
+          "variables": { "id": "{{noteId}}" }
+        }
+      },
+
+      "addReference": {
+        "description": "Add a reference from note A to note B. Use env vars {{noteId}} (from) and {{otherNoteId}} (to)",
+        "body": {
+          "query": "mutation ($from: ID!, $to: ID!) { addReference(fromNoteId: $from, toNoteId: $to) { id title referencesTo { id title } } }",
+          "variables": { "from": "{{noteId}}", "to": "{{otherNoteId}}" }
+        }
+      },
+
+      "removeReference": {
+        "description": "Remove a reference",
+        "body": {
+          "query": "mutation ($from: ID!, $to: ID!) { removeReference(fromNoteId: $from, toNoteId: $to) { id referencesTo { id } } }",
+          "variables": { "from": "{{noteId}}", "to": "{{otherNoteId}}" }
+        }
+      },
+
+      "addTag": {
+        "description": "Add (or create) a tag and attach it to a note",
+        "body": {
+          "query": "mutation ($noteId: ID!, $tagName: String!) { addTag(noteId: $noteId, tagName: $tagName) { id tags { id name } } }",
+          "variables": { "noteId": "{{noteId}}", "tagName": "important" }
+        }
+      },
+
+      "removeTag": {
+        "description": "Remove a tag from a note",
+        "body": {
+          "query": "mutation ($noteId: ID!, $tagName: String!) { removeTag(noteId: $noteId, tagName: $tagName) { id tags { id name } } }",
+          "variables": { "noteId": "{{noteId}}", "tagName": "important" }
+        }
+      }
+    }
+  }
+}
+
