@@ -728,3 +728,217 @@ Built with:
 **Happy Knowledge Graphing! 🚀**
 
 For questions or issues, check the troubleshooting section or create an issue on GitHub.
+
+## 🧪 Postman Testing Guide
+
+This section shows how to test the application's endpoints with Postman. It covers REST and GraphQL requests, environment setup, example request bodies, and Postman test scripts to capture and reuse IDs between requests.
+
+### 1) Postman quick setup
+
+1. Install Postman (https://www.postman.com/).
+2. Create a new Environment (top-right ▶ New Environment) and add a variable:
+   - `baseUrl` = `http://localhost:8080`
+
+3. When making requests use `{{baseUrl}}` so you can switch environments easily (local, staging, etc.).
+4. For all GraphQL requests set header `Content-Type: application/json`.
+
+### 2) REST - Graph data endpoint
+
+- Endpoint: `GET {{baseUrl}}/api/graph/data`
+- Purpose: Returns a convenience payload for front-end graph rendering (nodes, links, stats).
+- Example Request (GET) — no body required.
+- Example Response shape (JSON):
+
+```
+{
+  "nodes": [
+    { "id": "<UUID>", "label": "Title or Tag", "type": "note|tag", "content": "...", "tags": ["t1","t2"], "referenceCount": 2 }
+  ],
+  "links": [
+    { "source": "<UUID>", "target": "<UUID>", "type": "references|has-tag" }
+  ],
+  "stats": { "noteCount": 1, "tagCount": 1, "referenceCount": 0 }
+}
+```
+
+Tip: Use this request to validate DB content quickly after creating notes/tags.
+
+### 3) GraphQL — general notes
+
+- GraphQL endpoint: `POST {{baseUrl}}/graphql`
+- Header: `Content-Type: application/json`
+- Body format (JSON):
+  - `{"query": "<GRAPHQL_QUERY_OR_MUTATION>", "variables": { ... } }`
+- Interactive UI: `{{baseUrl}}/graphiql` (handy to craft queries before copying to Postman)
+
+### 4) Useful GraphQL requests for Postman (examples)
+
+Below are ready-to-copy request bodies. In Postman: method POST, URL `{{baseUrl}}/graphql`, body -> raw -> JSON.
+
+1) Query all notes
+
+Body:
+```
+{
+  "query": "{ notes { id title content createdAt tags { id name } } }",
+  "variables": null
+}
+```
+
+2) Query single note by id (use environment variable `noteId`)
+
+Body:
+```
+{
+  "query": "query ($id: ID!) { note(id: $id) { id title content createdAt tags { id name } referencedBy { id } referencesTo { id } } }",
+  "variables": { "id": "{{noteId}}" }
+}
+```
+
+3) Create a note (recommended: use variables and capture the returned id)
+
+Body:
+```
+{
+  "query": "mutation ($input: CreateNoteInput!) { createNote(input: $input) { id title tags { name } createdAt } }",
+  "variables": { "input": { "title": "My note from Postman", "content": "Body text...", "tagNames": ["postman","test"] } }
+}
+```
+
+Postman test script (Tests tab) to capture created note id into environment variable `noteId`:
+
+```javascript
+const json = pm.response.json();
+if (json && json.data && json.data.createNote && json.data.createNote.id) {
+  pm.environment.set("noteId", json.data.createNote.id);
+  console.log('Saved noteId =', json.data.createNote.id);
+}
+```
+
+4) Update a note
+
+Body:
+```
+{
+  "query": "mutation ($id: ID!, $input: UpdateNoteInput!) { updateNote(id: $id, input: $input) { id title updatedAt } }",
+  "variables": { "id": "{{noteId}}", "input": { "title": "Updated title from Postman" } }
+}
+```
+
+5) Delete a note
+
+Body:
+```
+{
+  "query": "mutation ($id: ID!) { deleteNote(id: $id) }",
+  "variables": { "id": "{{noteId}}" }
+}
+```
+
+6) Add a reference (make sure you have two notes and their IDs available in env vars `fromId` and `toId`)
+
+Body:
+```
+{
+  "query": "mutation ($from: ID!, $to: ID!) { addReference(fromNoteId: $from, toNoteId: $to) { id referencesTo { id title } } }",
+  "variables": { "from": "{{fromId}}", "to": "{{toId}}" }
+}
+```
+
+7) Remove a reference
+
+Body:
+```
+{
+  "query": "mutation ($from: ID!, $to: ID!) { removeReference(fromNoteId: $from, toNoteId: $to) { id referencesTo { id } } }",
+  "variables": { "from": "{{fromId}}", "to": "{{toId}}" }
+}
+```
+
+8) Add a tag to a note
+
+Body:
+```
+{
+  "query": "mutation ($noteId: ID!, $tagName: String!) { addTag(noteId: $noteId, tagName: $tagName) { id tags { id name } } }",
+  "variables": { "noteId": "{{noteId}}", "tagName": "important" }
+}
+```
+
+9) Remove a tag from a note
+
+Body:
+```
+{
+  "query": "mutation ($noteId: ID!, $tagName: String!) { removeTag(noteId: $noteId, tagName: $tagName) { id tags { id name } } }",
+  "variables": { "noteId": "{{noteId}}", "tagName": "important" }
+}
+```
+
+10) Query all tags
+
+Body:
+```
+{
+  "query": "{ tags { id name notes { id title } } }",
+  "variables": null
+}
+```
+
+11) Query notes by tag
+
+Body:
+```
+{
+  "query": "query ($tagName: String!) { notesByTag(tagName: $tagName) { id title tags { name } } }",
+  "variables": { "tagName": "postman" }
+}
+```
+
+### 5) Chaining requests & example workflow in Postman
+
+A typical end-to-end flow:
+1. Run Create Note request — in Tests extract `noteId` into environment (see script above).
+2. Run Create another Note, extract `otherNoteId` into environment variable.
+3. Run Add Reference (use `from = {{noteId}}`, `to = {{otherNoteId}}`).
+4. Run GET `{{baseUrl}}/api/graph/data` to inspect the graph structure.
+5. Run Update or Delete requests as needed.
+
+Folder/collection suggestion in Postman:
+- Collection: Personal Knowledge Graph
+  - Folder: GraphQL → Queries
+  - Folder: GraphQL → Mutations
+  - Folder: REST → Graph Data
+
+### 6) Helpful Postman test scripts
+
+- Save the first element id from a query result (example for `notes` query):
+
+```javascript
+const json = pm.response.json();
+if (json && json.data && json.data.notes && json.data.notes.length) {
+  pm.environment.set('noteId', json.data.notes[0].id);
+}
+```
+
+- Assert that a GraphQL response contains `errors` and fail the test if present:
+
+```javascript
+const json = pm.response.json();
+pm.test('No GraphQL errors', function() {
+  pm.expect(json.errors).to.be.undefined;
+});
+```
+
+### 7) Troubleshooting & tips
+
+- If you get CORS or network errors when testing from a different host, ensure the app is reachable and the port (8080) is exposed.
+- Use `{{baseUrl}}/graphiql` to prototype queries and copy them into Postman.
+- IDs are UUIDs — copy/paste carefully; use environment variables to avoid mistakes.
+- If using Docker, ensure `docker-compose up` completed successfully and the Spring Boot app is healthy.
+
+---
+
+If you'd like, I can also:
+- Export a ready-to-import Postman collection JSON for you (I can generate one and add it to the repo).
+- Add a small `curl` script folder with quick commands to test the same endpoints from the terminal.
