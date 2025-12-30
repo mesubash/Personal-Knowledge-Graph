@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knowledge Graph Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            color: #2d3748;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #2d3748;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .input-group input {
+            padding: 10px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            width: 250px;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #4a5568;
+            font-size: 14px;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .graph-container {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #graph {
+            width: 100%;
+            height: 100%;
+        }
+
+        .node {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .node:hover {
+            stroke-width: 3px;
+        }
+
+        .node-label {
+            font-size: 12px;
+            font-weight: 500;
+            pointer-events: none;
+            text-shadow: 0 1px 3px rgba(255, 255, 255, 0.8);
+        }
+
+        .link {
+            stroke: #cbd5e0;
+            stroke-opacity: 0.6;
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrowhead);
+        }
+
+        .link:hover {
+            stroke: #667eea;
+            stroke-opacity: 1;
+            stroke-width: 3;
+        }
+
+        .tag-label {
+            font-size: 10px;
+            fill: #718096;
+            pointer-events: none;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            max-width: 300px;
+            z-index: 1000;
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+        }
+
+        .tooltip-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #667eea;
+        }
+
+        .tooltip-content {
+            line-height: 1.6;
+        }
+
+        .legend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .legend-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2d3748;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 18px;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fed7d7;
+            color: #c53030;
+            padding: 20px 30px;
+            border-radius: 10px;
+            border: 2px solid #fc8181;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🧠 Knowledge Graph Visualization</h1>
+        <div class="controls">
+            <div class="input-group">
+                <input type="text" id="apiUrl" placeholder="GraphQL API URL" value="http://localhost:8080/graphql">
+                <button class="btn btn-primary" onclick="loadGraph()">
+                    <span>🔄</span> Load Graph
+                </button>
+            </div>
+            <button class="btn btn-secondary" onclick="resetZoom()">
+                <span>🔍</span> Reset Zoom
+            </button>
+            <button class="btn btn-secondary" onclick="exportGraph()">
+                <span>💾</span> Export PNG
+            </button>
+        </div>
+        <div class="stats">
+            <div class="stat-item">
+                <span>📝 Notes:</span>
+                <span class="stat-value" id="noteCount">0</span>
+            </div>
+            <div class="stat-item">
+                <span>🏷️ Tags:</span>
+                <span class="stat-value" id="tagCount">0</span>
+            </div>
+            <div class="stat-item">
+                <span>🔗 References:</span>
+                <span class="stat-value" id="linkCount">0</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="graph-container">
+        <svg id="graph"></svg>
+        <div class="legend">
+            <div class="legend-title">Legend</div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #667eea;"></div>
+                <span>Notes</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #48bb78;"></div>
+                <span>Tags</span>
+            </div>
+            <div class="legend-item">
+                <svg width="30" height="2">
+                    <line x1="0" y1="1" x2="30" y2="1" stroke="#cbd5e0" stroke-width="2"/>
+                </svg>
+                <span>References</span>
+            </div>
+        </div>
+        <div class="tooltip" id="tooltip">
+            <div class="tooltip-title" id="tooltipTitle"></div>
+            <div class="tooltip-content" id="tooltipContent"></div>
+        </div>
+        <div class="loading" id="loading" style="display: none;">Loading graph data...</div>
+        <div class="error" id="error" style="display: none;"></div>
+    </div>
+</div>
+
+<script>
+    let simulation;
+    let svg, g;
+    let zoom;
+
+    const width = window.innerWidth - 40;
+    const height = window.innerHeight - 200;
+
+    function initializeSVG() {
+        svg = d3.select("#graph")
+            .attr("width", width)
+            .attr("height", height);
+
+        svg.append("defs").append("marker")
+            .attr("id", "arrowhead")
+            .attr("viewBox", "-0 -5 10 10")
+            .attr("refX", 25)
+            .attr("refY", 0)
+            .attr("orient", "auto")
+            .attr("markerWidth", 8)
+            .attr("markerHeight", 8)
+            .append("svg:path")
+            .attr("d", "M 0,-5 L 10,0 L 0,5")
+            .attr("fill", "#cbd5e0");
+
+        zoom = d3.zoom()
+            .scaleExtent([0.1, 4])
+            .on("zoom", (event) => {
+                g.attr("transform", event.transform);
+            });
+
+        svg.call(zoom);
+        g = svg.append("g");
+    }
+
+    async function loadGraph() {
+        const apiUrl = document.getElementById('apiUrl').value;
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+
+        loading.style.display = 'block';
+        error.style.display = 'none';
+
+        const query = `
+                query {
+                    notes {
+                        id
+                        title
+                        content
+                        tags { id name }
+                        referencesTo { id title }
+                    }
+                    tags {
+                        id
+                        name
+                    }
+                }
+            `;
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query })
+            });
+
+            if (!response.ok) throw new Error('Failed to fetch data');
+
+            const result = await response.json();
+            if (result.errors) throw new Error(result.errors[0].message);
+
+            loading.style.display = 'none';
+            visualizeGraph(result.data);
+        } catch (err) {
+            loading.style.display = 'none';
+            error.style.display = 'block';
+            error.textContent = `Error: ${err.message}. Make sure the API is running at ${apiUrl}`;
+            console.error(err);
+        }
+    }
+
+    function visualizeGraph(data) {
+        g.selectAll("*").remove();
+
+        const nodes = [];
+        const links = [];
+
+        data.notes.forEach(note => {
+            nodes.push({
+                id: note.id,
+                label: note.title,
+                type: 'note',
+                data: note
+            });
+
+            note.tags.forEach(tag => {
+                if (!nodes.find(n => n.id === tag.id)) {
+                    nodes.push({
+                        id: tag.id,
+                        label: tag.name,
+                        type: 'tag',
+                        data: tag
+                    });
+                }
+                links.push({
+                    source: note.id,
+                    target: tag.id,
+                    type: 'has-tag'
+                });
+            });
+
+            note.referencesTo.forEach(ref => {
+                links.push({
+                    source: note.id,
+                    target: ref.id,
+                    type: 'references'
+                });
+            });
+        });
+
+        document.getElementById('noteCount').textContent = data.notes.length;
+        document.getElementById('tagCount').textContent = data.tags.length;
+        document.getElementById('linkCount').textContent = links.filter(l => l.type === 'references').length;
+
+        if (simulation) simulation.stop();
+
+        simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(links).id(d => d.id).distance(100))
+            .force("charge", d3.forceManyBody().strength(-300))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("collision", d3.forceCollide().radius(40));
+
+        const link = g.append("g")
+            .selectAll("path")
+            .data(links)
+            .enter().append("path")
+            .attr("class", "link")
+            .style("stroke-dasharray", d => d.type === 'has-tag' ? "5,5" : "none");
+
+        const node = g.append("g")
+            .selectAll("g")
+            .data(nodes)
+            .enter().append("g")
+            .attr("class", "node")
+            .call(d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended));
+
+        node.append("circle")
+            .attr("r", d => d.type === 'note' ? 20 : 15)
+            .style("fill", d => d.type === 'note' ? '#667eea' : '#48bb78')
+            .style("stroke", "#fff")
+            .style("stroke-width", 3);
+
+        node.append("text")
+            .attr("class", "node-label")
+            .attr("dy", 35)
+            .attr("text-anchor", "middle")
+            .text(d => d.label.length > 20 ? d.label.substring(0, 20) + '...' : d.label)
+            .style("fill", "#2d3748")
+            .style("font-size", d => d.type === 'note' ? '12px' : '10px');
+
+        node.on("mouseover", showTooltip)
+            .on("mouseout", hideTooltip)
+            .on("click", handleNodeClick);
+
+        simulation.on("tick", () => {
+            link.attr("d", d => {
+                const dx = d.target.x - d.source.x;
+                const dy = d.target.y - d.source.y;
+                const dr = Math.sqrt(dx * dx + dy * dy);
+                return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
+            });
+
+            node.attr("transform", d => `translate(${d.x},${d.y})`);
+        });
+    }
+
+    function showTooltip(event, d) {
+        const tooltip = document.getElementById('tooltip');
+        const title = document.getElementById('tooltipTitle');
+        const content = document.getElementById('tooltipContent');
+
+        title.textContent = d.label;
+
+        if (d.type === 'note') {
+            const tags = d.data.tags.map(t => t.name).join(', ');
+            const refs = d.data.referencesTo.length;
+            content.innerHTML = `
+                    <div><strong>Type:</strong> Note</div>
+                    <div><strong>Tags:</strong> ${tags || 'None'}</div>
+                    <div><strong>References:</strong> ${refs}</div>
+                    <div style="margin-top: 8px; color: #a0aec0; font-size: 11px;">
+                        ${d.data.content ? d.data.content.substring(0, 100) + '...' : 'No content'}
+                    </div>
+                `;
+        } else {
+            content.innerHTML = `<div><strong>Type:</strong> Tag</div>`;
+        }
+
+        tooltip.style.left = (event.pageX + 15) + 'px';
+        tooltip.style.top = (event.pageY + 15) + 'px';
+        tooltip.classList.add('visible');
+    }
+
+    function hideTooltip() {
+        document.getElementById('tooltip').classList.remove('visible');
+    }
+
+    function handleNodeClick(event, d) {
+        console.log('Clicked node:', d);
+        if (d.type === 'note') {
+            alert(`Note: ${d.label}\n\nContent: ${d.data.content || 'No content'}\n\nTags: ${d.data.tags.map(t => t.name).join(', ')}`);
+        }
+    }
+
+    function dragstarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+    }
+
+    function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+    }
+
+    function dragended(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+    }
+
+    function resetZoom() {
+        svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
+    }
+
+    function exportGraph() {
+        const svgData = document.getElementById("graph").outerHTML;
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+
+        const img = new Image();
+        const blob = new Blob([svgData], { type: "image/svg+xml" });
+        const url = URL.createObjectURL(blob);
+
+        img.onload = function() {
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0);
+            URL.revokeObjectURL(url);
+
+            canvas.toBlob(function(blob) {
+                const link = document.createElement('a');
+                link.download = 'knowledge-graph.png';
+                link.href = URL.createObjectURL(blob);
+                link.click();
+            });
+        };
+
+        img.src = url;
+    }
+
+    initializeSVG();
+    window.addEventListener('resize', () => {
+        location.reload();
+    });
+</script>
+</body>
+</html>
