@@ -22,6 +22,7 @@ type Query {
     tags: [Tag!]!
 }
 
+
 type Mutation {
     createNote(input: CreateNoteInput!): Note!
     updateNote(id: ID!, input: UpdateNoteInput!): Note!
